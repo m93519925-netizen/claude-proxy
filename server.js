@@ -65,7 +65,7 @@ async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
     rendering_mode: 'messages',
     turn_message_uuids: {
       human_message_uuid: uuidv4(),
-      ai_message_uuid: uuidv4()
+      assistant_message_uuid: uuidv4()  // ← đổi tên chỗ này
     }
   };
 
