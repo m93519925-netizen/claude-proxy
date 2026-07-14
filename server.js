@@ -60,7 +60,7 @@ async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
     sync_sources: [],
     tools: [],
     thinking_mode: 'off',
-    effort: 'normal',
+    effort: 'low',
     locale: 'en-US',
     rendering_mode: 'messages',
     turn_message_uuids: {
