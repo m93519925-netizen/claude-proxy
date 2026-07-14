@@ -1,4 +1,4 @@
-// server.js
+require('dotenv').config();
 const express = require('express');
 const fetch = require('node-fetch');
 const { v4: uuidv4 } = require('uuid');
@@ -6,36 +6,44 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 app.use(express.json());
 
-const SESSION_KEY = 'sk-ant-sid02-...'; // paste session key mới vào đây
-const ORG_ID = 'b13aee14-47c7-4677-a58c-2f3eee8d047c';
+const SESSION_KEY = process.env.SESSION_KEY;
+const ORG_ID = process.env.ORG_ID;
+const PORT = process.env.PORT || 3000;
 
-const HEADERS = {
+if (!SESSION_KEY || !ORG_ID) {
+  console.error('❌ Thiếu SESSION_KEY hoặc ORG_ID trong file .env');
+  process.exit(1);
+}
+
+const getHeaders = () => ({
   'cookie': `sessionKey=${SESSION_KEY}`,
   'content-type': 'application/json',
   'origin': 'https://claude.ai',
+  'referer': 'https://claude.ai/',
   'anthropic-client-platform': 'web_claude_ai',
   'anthropic-device-id': uuidv4(),
   'user-agent': 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36',
   'accept': 'text/event-stream',
-  'referer': 'https://claude.ai/',
-};
+});
 
-// Tạo conversation mới
 async function createConversation() {
   const res = await fetch(
     `https://claude.ai/api/organizations/${ORG_ID}/chat_conversations`,
     {
       method: 'POST',
-      headers: HEADERS,
+      headers: getHeaders(),
       body: JSON.stringify({ uuid: uuidv4(), name: '' })
     }
   );
-  const data = await res.json();
   console.log('Create conv status:', res.status);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create conversation: ${res.status} - ${text.slice(0, 100)}`);
+  }
+  const data = await res.json();
   return data.uuid;
 }
 
-// Stream message
 async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
   const payload = {
     prompt,
@@ -60,44 +68,54 @@ async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
     `https://claude.ai/api/organizations/${ORG_ID}/chat_conversations/${convId}/completion`,
     {
       method: 'POST',
-      headers: HEADERS,
+      headers: getHeaders(),
       body: JSON.stringify(payload)
     }
   );
 
+  console.log('Stream status:', res.status);
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to stream: ${res.status} - ${text.slice(0, 100)}`);
+  }
+
   return res;
 }
 
-// Endpoint nhận request từ Colab
-app.post('/proxy', async (req, res) => {
-  try {
-    const { prompt, model } = req.body;
+// Health check
+app.get('/', (req, res) => {
+  res.json({ status: 'Claude Proxy running 🚀' });
+});
 
+// Proxy endpoint
+app.post('/proxy', async (req, res) => {
+  const { prompt, model } = req.body;
+
+  if (!prompt) {
+    return res.status(400).json({ error: 'Thiếu prompt' });
+  }
+
+  try {
     const convId = await createConversation();
     const claudeRes = await streamMessage(prompt, convId, model);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-    claudeRes.body.on('data', chunk => {
-      res.write(chunk);
-    });
-
-    claudeRes.body.on('end', () => {
-      res.end();
-    });
-
+    claudeRes.body.on('data', chunk => res.write(chunk));
+    claudeRes.body.on('end', () => res.end());
     claudeRes.body.on('error', err => {
       console.error('Stream error:', err);
       res.end();
     });
 
   } catch (err) {
-    console.error(err);
+    console.error('Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/', (req, res) => res.json({ status: 'Termux proxy running' }));
-
-app.listen(3000, () => console.log('🚀 Proxy chạy tại http://localhost:3000'));
+app.listen(PORT, () => {
+  console.log(`🚀 Claude Proxy chạy tại http://localhost:${PORT}`);
+});
