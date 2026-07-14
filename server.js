@@ -23,9 +23,14 @@ const getHeaders = () => ({
   'anthropic-client-platform': 'web_claude_ai',
   'anthropic-device-id': uuidv4(),
   'user-agent': 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36',
-  'accept': 'text/event-stream',
+  'accept': 'text/event-stream, application/json',
+  'accept-language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+  'accept-encoding': 'gzip, deflate, br',
+  'connection': 'keep-alive',
+  'sec-fetch-dest': 'empty',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-site': 'same-origin',
 });
-
 async function createConversation() {
   const res = await fetch(
     `https://claude.ai/api/organizations/${ORG_ID}/chat_conversations`,
