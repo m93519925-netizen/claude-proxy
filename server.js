@@ -31,6 +31,7 @@ const getHeaders = () => ({
   'sec-fetch-mode': 'cors',
   'sec-fetch-site': 'same-origin',
 });
+
 async function createConversation() {
   const res = await fetch(
     `https://claude.ai/api/organizations/${ORG_ID}/chat_conversations`,
@@ -40,12 +41,18 @@ async function createConversation() {
       body: JSON.stringify({ uuid: uuidv4(), name: '' })
     }
   );
+
   console.log('Create conv status:', res.status);
+  console.log('Create conv headers:', JSON.stringify([...res.headers.entries()]));
+
+  const text = await res.text();
+  console.log('Create conv body:', text.slice(0, 500));
+
   if (!res.ok) {
-    const text = await res.text();
     throw new Error(`Failed to create conversation: ${res.status} - ${text.slice(0, 100)}`);
   }
-  const data = await res.json();
+
+  const data = JSON.parse(text);
   return data.uuid;
 }
 
@@ -65,7 +72,7 @@ async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
     rendering_mode: 'messages',
     turn_message_uuids: {
       human_message_uuid: uuidv4(),
-      assistant_message_uuid: uuidv4()  // ← đổi tên chỗ này
+      assistant_message_uuid: uuidv4()
     }
   };
 
@@ -79,6 +86,7 @@ async function streamMessage(prompt, convId, model = 'claude-sonnet-4-6') {
   );
 
   console.log('Stream status:', res.status);
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Failed to stream: ${res.status} - ${text.slice(0, 100)}`);
